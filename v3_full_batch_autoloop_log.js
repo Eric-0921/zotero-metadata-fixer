@@ -240,8 +240,10 @@ if (SAVE_LOG_NOTE) {
 
   const note = new Zotero.Item("note");
   note.libraryID = libraryID;
-  note.setField("title", `Metadata Fix Log ${stamp}`);
-  note.setNote(`<pre>${Zotero.Utilities.htmlSpecialChars(fullLog)}</pre>`);
+  note.setNote(
+    `<h1>Metadata Fix Log ${Zotero.Utilities.htmlSpecialChars(stamp)}</h1>` +
+    `<pre>${Zotero.Utilities.htmlSpecialChars(fullLog)}</pre>`
+  );
   await note.saveTx();
 }
 
