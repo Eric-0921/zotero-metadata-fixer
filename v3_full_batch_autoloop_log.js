@@ -1,4 +1,4 @@
-﻿// v3_full_batch_autoloop_log.js
+﻿// v3.1_full_batch_autoloop_log.js
 // Zotero Run JavaScript (Async)
 
 const WRITE = false;
@@ -14,6 +14,7 @@ const MAX_RETRY = 4;
 
 const SAMPLE_SHOW = 30;
 const SAVE_LOG_NOTE = true;
+const DEDUPE_WITHIN_RUN = true;
 
 const MAILTO = "piweitseng0921@gmail.com";
 const UA = `ZoteroMetadataFixer/1.0 (mailto:${MAILTO})`;
@@ -133,10 +134,12 @@ const pane = Zotero.getActiveZoteroPane();
 const libraryID = pane.getSelectedLibraryID();
 const journalTypeID = Zotero.ItemTypes.getID("journalArticle");
 const doiCache = new Map();
+const processedItemIDs = new Set();
 const sample = [];
 const allLogs = [];
 
 let checked = 0, updated = 0, unchanged = 0, nohit = 0, review = 0, failed = 0;
+let reviewNoTitle = 0, reviewLowScore = 0, reviewNoJournal = 0;
 let processedTotal = 0;
 let batchesDone = 0;
 let lastTotalCandidates = 0;
@@ -151,12 +154,19 @@ for (let b = 0; b < (AUTO_LOOP ? MAX_BATCHES : 1); b++) {
   batchesDone++;
 
   for (const item of items) {
+    if (DEDUPE_WITHIN_RUN && processedItemIDs.has(item.id)) {
+      continue;
+    }
+    processedItemIDs.add(item.id);
+
     checked++;
     try {
       const title = (item.getField("title") || "").trim();
       if (!title) {
         if (WRITE) { clearMetaTags(item); item.addTag(TAG_REVIEW); await item.saveTx(); }
         review++;
+        reviewNoTitle++;
+        allLogs.push(`review(no_title) | itemID:${item.id}`);
         continue;
       }
 
@@ -184,12 +194,15 @@ for (let b = 0; b < (AUTO_LOOP ? MAX_BATCHES : 1); b++) {
         if (!best) {
           nohit++;
           if (WRITE) { clearMetaTags(item); item.addTag(TAG_NOHIT); await item.saveTx(); }
+          allLogs.push(`nohit | ${title.slice(0, 68)}`);
           await sleep(SLEEP_MS);
           continue;
         }
         if (bestScore < MIN_SCORE) {
           review++;
+          reviewLowScore++;
           if (WRITE) { clearMetaTags(item); item.addTag(TAG_REVIEW); await item.saveTx(); }
+          allLogs.push(`review(low_score=${bestScore.toFixed(2)}) | ${title.slice(0, 68)}`);
           await sleep(SLEEP_MS);
           continue;
         }
@@ -199,6 +212,16 @@ for (let b = 0; b < (AUTO_LOOP ? MAX_BATCHES : 1); b++) {
       const newDOI = crDOI(meta);
       const newJournal = crJournal(meta);
       const newYear = crYear(meta);
+
+      // DOI hit but no journal still means low-confidence metadata completion
+      if (!oldJournal && !newJournal) {
+        review++;
+        reviewNoJournal++;
+        if (WRITE) { clearMetaTags(item); item.addTag(TAG_REVIEW); await item.saveTx(); }
+        allLogs.push(`${mode} | review(no_journal) | ${title.slice(0, 68)} -> DOI:${newDOI || "-"}`);
+        await sleep(SLEEP_MS);
+        continue;
+      }
 
       let changed = false;
       if (!oldDOI && newDOI) { item.setField("DOI", newDOI); changed = true; }
@@ -231,8 +254,10 @@ if (SAVE_LOG_NOTE) {
     `time=${stamp}`,
     `WRITE=${WRITE}, ONLY_MISSING_FIELDS=${ONLY_MISSING_FIELDS}`,
     `AUTO_LOOP=${AUTO_LOOP}, BATCH_SIZE=${BATCH_SIZE}, MAX_BATCHES=${MAX_BATCHES}`,
+    `DEDUPE_WITHIN_RUN=${DEDUPE_WITHIN_RUN}`,
     `library=${libraryID}, last_total_candidates=${lastTotalCandidates}, processed_total=${processedTotal}, batches_done=${batchesDone}`,
-    `checked=${checked}, updated=${updated}, unchanged=${unchanged}, nohit=${nohit}, review=${review}, failed=${failed}`,
+    `checked=${checked}, unique_checked=${processedItemIDs.size}, updated=${updated}, unchanged=${unchanged}, nohit=${nohit}, review=${review}, failed=${failed}`,
+    `review_reasons: no_title=${reviewNoTitle}, low_score=${reviewLowScore}, no_journal=${reviewNoJournal}`,
     "",
     "details:",
     ...allLogs
@@ -250,7 +275,9 @@ if (SAVE_LOG_NOTE) {
 return [
   `WRITE=${WRITE}, ONLY_MISSING_FIELDS=${ONLY_MISSING_FIELDS}`,
   `AUTO_LOOP=${AUTO_LOOP}, BATCH_SIZE=${BATCH_SIZE}, MAX_BATCHES=${MAX_BATCHES}`,
+  `DEDUPE_WITHIN_RUN=${DEDUPE_WITHIN_RUN}`,
   `library=${libraryID}, processed_total=${processedTotal}, batches_done=${batchesDone}`,
-  `checked=${checked}, updated=${updated}, unchanged=${unchanged}, nohit=${nohit}, review=${review}, failed=${failed}`,
+  `checked=${checked}, unique_checked=${processedItemIDs.size}, updated=${updated}, unchanged=${unchanged}, nohit=${nohit}, review=${review}, failed=${failed}`,
+  `review_reasons: no_title=${reviewNoTitle}, low_score=${reviewLowScore}, no_journal=${reviewNoJournal}`,
   `sample:\n${sample.slice(0, SAMPLE_SHOW).join("\n")}`
 ].join("\n\n");
