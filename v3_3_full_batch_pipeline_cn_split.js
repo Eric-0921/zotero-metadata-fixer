@@ -1,7 +1,7 @@
 ﻿// v3.3_full_batch_pipeline_cn_split.js
 // Zotero Run JavaScript (Async)
 // Pipeline: Crossref -> OpenAlex -> Semantic Scholar
-// Adds CN split routing and repository-source filtering
+// English-focused mode: skip CN records, plus repository-source filtering
 
 const WRITE = false;
 const ONLY_MISSING_FIELDS = true;
@@ -30,7 +30,6 @@ const UA = `ZoteroMetadataFixer/1.0 (mailto:${MAILTO})`;
 
 const TAG_OK = "/meta_ok";
 const TAG_REVIEW = "/meta_review";
-const TAG_REVIEW_CN = "/meta_review_cn";
 const TAG_NOHIT = "/meta_nohit";
 const TAG_FAIL = "/meta_fail";
 
@@ -293,7 +292,7 @@ const sample = [];
 const allLogs = [];
 
 let checked = 0, updated = 0, unchanged = 0, nohit = 0, review = 0, failed = 0;
-let reviewCN = 0, reviewNoTitle = 0, reviewLowScore = 0, reviewNoJournal = 0, reviewRepoSource = 0, reviewFallbackNoDOI = 0;
+let skippedCN = 0, reviewNoTitle = 0, reviewLowScore = 0, reviewNoJournal = 0, reviewRepoSource = 0, reviewFallbackNoDOI = 0;
 let acceptedCrossref = 0, acceptedOpenAlex = 0, acceptedSemantic = 0;
 let processedTotal = 0;
 let batchesDone = 0;
@@ -313,11 +312,11 @@ for (let b = 0; b < (AUTO_LOOP ? MAX_BATCHES : 1); b++) {
     if (DEDUPE_WITHIN_RUN && processedItemIDs.has(item.id)) continue;
     processedItemIDs.add(item.id);
 
-    checked++;
     try {
       const title = (item.getField("title") || "").trim();
       const existingJournal = (item.getField("publicationTitle") || "").trim();
       if (!title) {
+        checked++;
         review++;
         reviewNoTitle++;
         if (WRITE) { clearMetaTags(item); item.addTag(TAG_REVIEW); await item.saveTx(); }
@@ -325,14 +324,14 @@ for (let b = 0; b < (AUTO_LOOP ? MAX_BATCHES : 1); b++) {
         continue;
       }
 
-      // Split CN items for a dedicated later pipeline
+      // Skip CN records from English pipeline
       if (containsCJK(title) || containsCJK(existingJournal)) {
-        review++;
-        reviewCN++;
-        if (WRITE) { clearMetaTags(item); item.addTag(TAG_REVIEW_CN); await item.saveTx(); }
-        allLogs.push(`review(cn_split) | ${title.slice(0, 68)}`);
+        skippedCN++;
+        allLogs.push(`skip(cn) | ${title.slice(0, 68)}`);
         continue;
       }
+
+      checked++;
 
       const oldDOI = normalizeDOI(item.getField("DOI") || "");
       const oldJournal = existingJournal;
@@ -403,9 +402,9 @@ const fullLog = [
   `pipeline=Crossref -> OpenAlex(${ENABLE_OPENALEX}) -> SemanticScholar(${ENABLE_SEMANTIC})`,
   `thresholds: crossref=${MIN_SCORE_CROSSREF}, fallback=${MIN_SCORE_FALLBACK}`,
   `library=${libraryID}, last_total_candidates=${lastTotalCandidates}, processed_total=${processedTotal}, batches_done=${batchesDone}`,
-  `checked=${checked}, unique_checked=${processedItemIDs.size}, updated=${updated}, unchanged=${unchanged}, nohit=${nohit}, review=${review}, failed=${failed}, review_rate=${reviewRate}%`,
+  `checked=${checked}, unique_checked=${processedItemIDs.size}, skipped_cn=${skippedCN}, updated=${updated}, unchanged=${unchanged}, nohit=${nohit}, review=${review}, failed=${failed}, review_rate=${reviewRate}%`,
   `provider_accept: crossref=${acceptedCrossref}, openalex=${acceptedOpenAlex}, semantic=${acceptedSemantic}`,
-  `review_reasons: cn_split=${reviewCN}, no_title=${reviewNoTitle}, low_score=${reviewLowScore}, no_journal=${reviewNoJournal}, repo_source=${reviewRepoSource}, fallback_no_doi=${reviewFallbackNoDOI}`,
+  `review_reasons: no_title=${reviewNoTitle}, low_score=${reviewLowScore}, no_journal=${reviewNoJournal}, repo_source=${reviewRepoSource}, fallback_no_doi=${reviewFallbackNoDOI}`,
   "",
   "details:",
   ...allLogs,
@@ -434,9 +433,9 @@ return [
   `pipeline=Crossref -> OpenAlex(${ENABLE_OPENALEX}) -> SemanticScholar(${ENABLE_SEMANTIC})`,
   `thresholds: crossref=${MIN_SCORE_CROSSREF}, fallback=${MIN_SCORE_FALLBACK}`,
   `library=${libraryID}, processed_total=${processedTotal}, batches_done=${batchesDone}`,
-  `checked=${checked}, unique_checked=${processedItemIDs.size}, updated=${updated}, unchanged=${unchanged}, nohit=${nohit}, review=${review}, failed=${failed}, review_rate=${reviewRate}%`,
+  `checked=${checked}, unique_checked=${processedItemIDs.size}, skipped_cn=${skippedCN}, updated=${updated}, unchanged=${unchanged}, nohit=${nohit}, review=${review}, failed=${failed}, review_rate=${reviewRate}%`,
   `provider_accept: crossref=${acceptedCrossref}, openalex=${acceptedOpenAlex}, semantic=${acceptedSemantic}`,
-  `review_reasons: cn_split=${reviewCN}, no_title=${reviewNoTitle}, low_score=${reviewLowScore}, no_journal=${reviewNoJournal}, repo_source=${reviewRepoSource}, fallback_no_doi=${reviewFallbackNoDOI}`,
+  `review_reasons: no_title=${reviewNoTitle}, low_score=${reviewLowScore}, no_journal=${reviewNoJournal}, repo_source=${reviewRepoSource}, fallback_no_doi=${reviewFallbackNoDOI}`,
   `log_file=${savedLogFilePath || "(save failed or disabled)"}`,
   `sample:\n${sample.slice(0, SAMPLE_SHOW).join("\n")}`,
 ].join("\n\n");
