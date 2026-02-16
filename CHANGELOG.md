@@ -52,3 +52,10 @@ All notable changes to this project will be documented in this file.
 ### Changed (v3.3 patch)
 - CN records are now skipped in English pipeline and counted as skipped_cn, instead of being routed to review.
 
+
+## [v6.0] - 2026-02-16
+### Added
+- New script: v6_rule_based_tagger.js
+- Rule-based English-first tagging baseline across topic/method/material/app dimensions
+- File log output with top-tag and co-occurrence summaries
+
