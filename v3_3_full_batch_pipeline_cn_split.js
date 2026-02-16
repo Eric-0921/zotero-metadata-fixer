@@ -30,6 +30,7 @@ const UA = `ZoteroMetadataFixer/1.0 (mailto:${MAILTO})`;
 
 const TAG_OK = "/meta_ok";
 const TAG_REVIEW = "/meta_review";
+const TAG_CN_QUEUE = "/meta_cn_queue";
 const TAG_NOHIT = "/meta_nohit";
 const TAG_FAIL = "/meta_fail";
 
@@ -292,7 +293,7 @@ const sample = [];
 const allLogs = [];
 
 let checked = 0, updated = 0, unchanged = 0, nohit = 0, review = 0, failed = 0;
-let skippedCN = 0, reviewNoTitle = 0, reviewLowScore = 0, reviewNoJournal = 0, reviewRepoSource = 0, reviewFallbackNoDOI = 0;
+let skippedCN = 0, cnTagged = 0, reviewNoTitle = 0, reviewLowScore = 0, reviewNoJournal = 0, reviewRepoSource = 0, reviewFallbackNoDOI = 0;
 let acceptedCrossref = 0, acceptedOpenAlex = 0, acceptedSemantic = 0;
 let processedTotal = 0;
 let batchesDone = 0;
@@ -327,6 +328,12 @@ for (let b = 0; b < (AUTO_LOOP ? MAX_BATCHES : 1); b++) {
       // Skip CN records from English pipeline
       if (containsCJK(title) || containsCJK(existingJournal)) {
         skippedCN++;
+        if (WRITE) {
+          clearMetaTags(item);
+          item.addTag(TAG_CN_QUEUE);
+          await item.saveTx();
+          cnTagged++;
+        }
         allLogs.push(`skip(cn) | ${title.slice(0, 68)}`);
         continue;
       }
@@ -402,7 +409,7 @@ const fullLog = [
   `pipeline=Crossref -> OpenAlex(${ENABLE_OPENALEX}) -> SemanticScholar(${ENABLE_SEMANTIC})`,
   `thresholds: crossref=${MIN_SCORE_CROSSREF}, fallback=${MIN_SCORE_FALLBACK}`,
   `library=${libraryID}, last_total_candidates=${lastTotalCandidates}, processed_total=${processedTotal}, batches_done=${batchesDone}`,
-  `checked=${checked}, unique_checked=${processedItemIDs.size}, skipped_cn=${skippedCN}, updated=${updated}, unchanged=${unchanged}, nohit=${nohit}, review=${review}, failed=${failed}, review_rate=${reviewRate}%`,
+  `checked=${checked}, unique_checked=${processedItemIDs.size}, skipped_cn=${skippedCN}, cn_tagged=${cnTagged}, updated=${updated}, unchanged=${unchanged}, nohit=${nohit}, review=${review}, failed=${failed}, review_rate=${reviewRate}%`,
   `provider_accept: crossref=${acceptedCrossref}, openalex=${acceptedOpenAlex}, semantic=${acceptedSemantic}`,
   `review_reasons: no_title=${reviewNoTitle}, low_score=${reviewLowScore}, no_journal=${reviewNoJournal}, repo_source=${reviewRepoSource}, fallback_no_doi=${reviewFallbackNoDOI}`,
   "",
@@ -433,7 +440,7 @@ return [
   `pipeline=Crossref -> OpenAlex(${ENABLE_OPENALEX}) -> SemanticScholar(${ENABLE_SEMANTIC})`,
   `thresholds: crossref=${MIN_SCORE_CROSSREF}, fallback=${MIN_SCORE_FALLBACK}`,
   `library=${libraryID}, processed_total=${processedTotal}, batches_done=${batchesDone}`,
-  `checked=${checked}, unique_checked=${processedItemIDs.size}, skipped_cn=${skippedCN}, updated=${updated}, unchanged=${unchanged}, nohit=${nohit}, review=${review}, failed=${failed}, review_rate=${reviewRate}%`,
+  `checked=${checked}, unique_checked=${processedItemIDs.size}, skipped_cn=${skippedCN}, cn_tagged=${cnTagged}, updated=${updated}, unchanged=${unchanged}, nohit=${nohit}, review=${review}, failed=${failed}, review_rate=${reviewRate}%`,
   `provider_accept: crossref=${acceptedCrossref}, openalex=${acceptedOpenAlex}, semantic=${acceptedSemantic}`,
   `review_reasons: no_title=${reviewNoTitle}, low_score=${reviewLowScore}, no_journal=${reviewNoJournal}, repo_source=${reviewRepoSource}, fallback_no_doi=${reviewFallbackNoDOI}`,
   `log_file=${savedLogFilePath || "(save failed or disabled)"}`,
