@@ -99,6 +99,9 @@ function clearMetaTags(item) {
 }
 function isTargetItem(item, journalTypeID) {
   if (!item.isRegularItem() || item.itemTypeID !== journalTypeID) return false;
+  // Skip items already routed to CN queue in previous runs
+  const tags = item.getTags() || [];
+  if (tags.some((t) => (t?.tag || "") === TAG_CN_QUEUE)) return false;
   if (!ONLY_MISSING_FIELDS) return true;
   const doi = normalizeDOI(item.getField("DOI") || "");
   const journal = (item.getField("publicationTitle") || "").trim();
@@ -306,12 +309,14 @@ for (let b = 0; b < (AUTO_LOOP ? MAX_BATCHES : 1); b++) {
   lastTotalCandidates = candidates.length;
   const items = candidates.slice(0, BATCH_SIZE);
   if (!items.length) break;
+  let batchProcessed = 0;
 
   batchesDone++;
 
   for (const item of items) {
     if (DEDUPE_WITHIN_RUN && processedItemIDs.has(item.id)) continue;
     processedItemIDs.add(item.id);
+    batchProcessed++;
 
     try {
       const title = (item.getField("title") || "").trim();
@@ -396,7 +401,8 @@ for (let b = 0; b < (AUTO_LOOP ? MAX_BATCHES : 1); b++) {
     }
   }
 
-  processedTotal += items.length;
+  processedTotal += batchProcessed;
+  if (!batchProcessed) break;
   if (AUTO_LOOP) await sleep(BATCH_GAP_MS);
 }
 
