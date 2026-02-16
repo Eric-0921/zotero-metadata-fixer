@@ -48,3 +48,7 @@ All notable changes to this project will be documented in this file.
 ## [v1.0] - 2026-02-15
 ### Added
 - Selected-items metadata lookup workflow
+
+### Changed (v3.3 patch)
+- CN records are now skipped in English pipeline and counted as skipped_cn, instead of being routed to review.
+
