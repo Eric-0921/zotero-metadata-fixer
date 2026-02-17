@@ -4,6 +4,47 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [v8.3] - 2026-02-17
+### Added
+- New script: `v8_3_s2_batch_primary_dryrun.js`
+- S2-first batch pipeline using `POST /graph/v1/paper/batch`
+  - DOI batch request with conservative batch size
+  - strict S2 pacing with safety margin above 1 req/sec
+- High-value S2 fields retrieval in one call:
+  - `title,abstract,year,journal,externalIds,tldr,citationCount,influentialCitationCount,openAccessPdf`
+- `Extra` enrichment builder with dedupe guard:
+  - `S2_TLDR`, citation summary, OA PDF link
+- Item-level detail logs include:
+  - abstract source, abstract length, S2 metadata flags
+- Improved throttling observability:
+  - `[v8.3][throttle]`, `[v8.3][429]`, `[v8.3][retry]`
+
+### Changed
+- Waterfall strategy flipped for LLM stage:
+  - `S2 batch primary -> OpenAlex fallback`
+- Progress logging uses handled item count for accurate ETA.
+
+### Validation
+- Full dry-run sample (238 items) achieved:
+  - `failed=0`
+  - `provider_s2_429=0`, `provider_openalex_429=0`, `provider_deepseek_429=0`
+  - `deepseek success=238/238`
+
+## [v6.1] - 2026-02-16
+### Added
+- New script: `v6_1_rule_based_tagger.js`
+- Expanded rule dictionary for better method/app recall:
+  - Interferometer families (Michelson/Sagnac/Fabry-Perot/MZI)
+  - Gratings and resonators (FBG/LPG/WGM/ring)
+  - Electrochemical and simulation methods
+  - Extra application labels (gas, pH, humidity, electric field)
+
+### Changed
+- V6.1 log metrics now separate:
+  - `would_change_items` for dry runs
+  - `changed_items` for write runs
+- Increased default `MAX_TAGS_PER_ITEM` from 6 to 8 in v6.1
+
 ## [v3.3] - 2026-02-16
 ### Added
 - New script: `v3_3_full_batch_pipeline_cn_split.js`

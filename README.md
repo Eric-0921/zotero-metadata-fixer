@@ -40,6 +40,31 @@ English:
   - Fallback acceptance requires DOI
   - Detailed review reason breakdown
 
+- `v6_rule_based_tagger.js`
+  - English-first deterministic rule tagger
+  - 4 dimensions: `topic/*`, `method/*`, `material/*`, `app/*`
+  - Co-occurrence and top-tag statistics in logfile
+
+- `v6_1_rule_based_tagger.js` (recommended for content tagging)
+  - Expanded `method/app` rule dictionary for sensing papers
+  - Better dry-run readability:
+    - `would_change_items` (if `WRITE=false`)
+    - `changed_items` (if `WRITE=true`)
+  - Keeps CN skip behavior and metadata gate (`DOI+journal+year`)
+
+- `v8_3_s2_batch_primary_dryrun.js` (recommended for LLM completion stage)
+  - S2-first batch enrichment via `/graph/v1/paper/batch` (DOI batch)
+  - High-value fields in one call:
+    - `abstract`, `tldr`, `citationCount`, `influentialCitationCount`, `openAccessPdf`
+  - Fallback chain:
+    - `S2 batch -> OpenAlex -> title-only fallback`
+  - DeepSeek controlled tag suggestion:
+    - `allowed` tags (whitelist)
+    - optional `candidate/*` tags
+  - Write mode can persist:
+    - `abstractNote` backfill
+    - `Extra` enrichment with `S2_TLDR` block and dedupe guard
+
 ## 3) Prerequisites | 前置条件
 
 - Zotero 8 (desktop)
@@ -64,6 +89,16 @@ English:
    - `WRITE=true`
    - `AUTO_LOOP=true`
 
+V8.3 production example (full run):
+- `WRITE=true`
+- `BATCH_SIZE=120`
+- `AUTO_LOOP=true`
+- `MAX_BATCHES=20`
+- keep safety defaults:
+  - `S2_MIN_INTERVAL_MS>=1500`
+  - `S2_BATCH_SIZE=10`
+  - `GLOBAL_COOLDOWN_ON_429_MS=60000`
+
 中文建议：
 1. 先单批 dry-run，不写库
 2. 看 `review_rate/provider_accept/review_reasons`
@@ -74,9 +109,10 @@ English:
 
 - `/meta_ok`: accepted metadata record
 - `/meta_review`: low-confidence or policy-rejected record
-- `/meta_review_cn`: Chinese-title/journal records split for dedicated CN pipeline
+- `/meta_cn_queue`: Chinese-title/journal records split for dedicated CN pipeline
 - `/meta_nohit`: no candidate (legacy versions)
 - `/meta_fail`: runtime failure
+- `/meta_llm_untagged`: LLM completion queue (input queue for v8.x)
 
 ## 6) Log Output | 日志输出
 
