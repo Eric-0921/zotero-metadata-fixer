@@ -3,6 +3,17 @@
 All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
+### Added
+- Project documentation framework under `docs/`:
+  - `PROJECT_OVERVIEW.md`
+  - `ARCHITECTURE.md`
+  - `RUNBOOK.md`
+  - `KNOWN_PITFALLS.md`
+  - `HISTORY_AND_DECISIONS.md`
+  - `ROADMAP.md`
+
+### Changed
+- Refactored root `README.md` into a project entry page linking structured docs.
 
 ## [v8.3] - 2026-02-17
 ### Added
